@@ -15,6 +15,20 @@ async function getPlayerCount(appId = MARATHON_APP_ID) {
 	return steamResponse.player_count;
 }
 
+async function getLatestUpdate(appId = MARATHON_APP_ID) {
+	const res = await fetch(`https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid=${appId}&count=1`);
+
+	if (!res.ok) {
+		throw new Error(`Steam API returned ${res.status} ${res.statusText}`);
+	}
+
+	const { appnews } = await res.json();
+
+
+	return appnews;
+}
+
 module.exports = {
 	getPlayerCount,
+	getLatestUpdate,
 };
