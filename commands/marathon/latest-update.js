@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js');
-const { getLatestUpdate } = require('../../services/steam/js');
+const { getLatestUpdate } = require('../../services/steam.js');
 
 module.exports = {
 	data: new SlashCommandBuilder()
