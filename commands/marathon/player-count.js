@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js');
-const { getPlayerCount } = require('../services/steam.js');
+const { getPlayerCount } = require('../../services/steam.js');
 
 module.exports = {
 	data: new SlashCommandBuilder()
