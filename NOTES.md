@@ -21,7 +21,7 @@ Solos Matches: 8 to 12 runners
 POIs: Quarantine, Algae Ponds, Greenhouse, Bio-Research, Complex, AI Uplink, Maintenance
 Events: Anomaly, Lockdown
 Priority Hostile: Between Bio-Research and Greenhouse
-Secrets: Observation Labs in Complex and UESC Certs
+Secrets: Observation Labs in Complex and UESC Certs (12 UESC or 7 UESC Certs for Main Elevator)
 
 Outpost
 Threat: High
@@ -30,7 +30,7 @@ Solos Matches: 6 to 8 runners
 POIs: Flight Control, Airfield, Orientation, Dormitories, Pinwheel Base, Processing
 Events: Convoy
 Priority Hostile: Dormitories
-Secrets: Pinwheel Base and Clearance Codes
+Secrets: Pinwheel Base and Clearance Codes (2 Green Clearance Codes or Conveyance Request or 5 Destroyed Wing Boxes)
 
 Cryo Archive
 Threat: Very High
