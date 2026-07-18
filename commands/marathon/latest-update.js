@@ -10,8 +10,7 @@ module.exports = {
 		await interaction.deferReply();
 
 		try {
-			const appNews = await getLatestUpdate();
-			const latestUpdate = appNews.newsitems[0];
+			const latestUpdate = await getLatestUpdate();
 
 			if (!latestUpdate) {
 				throw new Error('Steam returned no news items.');
