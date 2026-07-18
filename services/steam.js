@@ -16,16 +16,19 @@ async function getPlayerCount(appId = MARATHON_APP_ID) {
 }
 
 async function getLatestUpdate(appId = MARATHON_APP_ID) {
-	const res = await fetch(`https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid=${appId}&count=1`);
+	const res = await fetch(`https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid=${appId}`);
 
 	if (!res.ok) {
 		throw new Error(`Steam API returned ${res.status} ${res.statusText}`);
 	}
 
-	const { appnews } = await res.json();
+	const data = await res.json();
+	const updates = data.appnews.newsitems;
+	const latestUpdate = updates.find(
+		item => item.author === 'Marathon_Team',
+	);
 
-
-	return appnews;
+	return latestUpdate;
 }
 
 module.exports = {
