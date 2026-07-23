@@ -4,7 +4,9 @@ const path = require('node:path');
 const MARATHON_APP_ID = '3065800';
 
 const MARATHON_NEWS_URL =
-	`https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid=${MARATHON_APP_ID}`;
+	'https://api.steampowered.com/' +
+	'ISteamNews/GetNewsForApp/v2/' +
+	`?appid=${MARATHON_APP_ID}`;
 
 const updatesFile = path.join(
 	__dirname,
@@ -14,11 +16,15 @@ const updatesFile = path.join(
 );
 
 /**
- * Read previously processed Steam updates.
+ * Read updates that have already been handled.
  */
 async function readStoredUpdates() {
 	try {
-		const contents = await fs.readFile(updatesFile, 'utf8');
+		const contents = await fs.readFile(
+			updatesFile,
+			'utf8',
+		);
+
 		const updates = JSON.parse(contents);
 
 		if (!Array.isArray(updates)) {
@@ -32,7 +38,7 @@ async function readStoredUpdates() {
 	catch (error) {
 		if (error.code === 'ENOENT') {
 			console.log(
-				'data/updates.json does not exist. Starting fresh.',
+				'data/updates.json was not found. Starting fresh.',
 			);
 
 			return [];
@@ -43,12 +49,15 @@ async function readStoredUpdates() {
 }
 
 /**
- * Save processed updates newest-first.
+ * Save stored updates newest-first.
  */
 async function writeStoredUpdates(updates) {
-	await fs.mkdir(path.dirname(updatesFile), {
-		recursive: true,
-	});
+	await fs.mkdir(
+		path.dirname(updatesFile),
+		{
+			recursive: true,
+		},
+	);
 
 	const sortedUpdates = [...updates].sort(
 		(a, b) => b.date - a.date,
@@ -62,15 +71,18 @@ async function writeStoredUpdates(updates) {
 }
 
 /**
- * Fetch official Marathon announcements from Steam.
+ * Fetch official Marathon updates.
  *
- * Results are sorted oldest-first so first-run messages appear
- * chronologically in the Discord channel.
+ * Oldest-first ordering lets the initial batch appear
+ * chronologically in Discord.
  */
 async function fetchMarathonUpdates() {
-	const response = await fetch(MARATHON_NEWS_URL, {
-		signal: AbortSignal.timeout(15_000),
-	});
+	const response = await fetch(
+		MARATHON_NEWS_URL,
+		{
+			signal: AbortSignal.timeout(15_000),
+		},
+	);
 
 	if (!response.ok) {
 		throw new Error(
@@ -93,36 +105,15 @@ async function fetchMarathonUpdates() {
 }
 
 /**
- * Create the Discord message for one Steam update.
+ * Put the URL on its own line so Discord can create
+ * the Steam preview card and image.
  */
 function createUpdateMessage(update) {
-	return [
-		`## ${update.title}`,
-		`Published: <t:${update.date}:F>`,
-		update.url,
-	].join('\n');
+	return `**${update.title}**\n${update.url}`;
 }
 
 /**
- * Add updates that are not already stored.
- */
-function mergeStoredUpdates(storedUpdates, newUpdates) {
-	const knownGids = new Set(
-		storedUpdates.map((update) => update.gid),
-	);
-
-	for (const update of newUpdates) {
-		if (!knownGids.has(update.gid)) {
-			storedUpdates.push(update);
-			knownGids.add(update.gid);
-		}
-	}
-
-	return storedUpdates;
-}
-
-/**
- * Find the configured Discord channel.
+ * Fetch and validate the announcement channel.
  */
 async function getUpdateChannel(client, channelId) {
 	const channel = await client.channels.fetch(channelId);
@@ -143,18 +134,50 @@ async function getUpdateChannel(client, channelId) {
 }
 
 /**
- * Check Steam and post updates.
+ * Add an update to the stored list if it is not present.
+ */
+function addStoredUpdate(storedUpdates, update) {
+	const alreadyStored = storedUpdates.some(
+		(storedUpdate) => storedUpdate.gid === update.gid,
+	);
+
+	if (!alreadyStored) {
+		storedUpdates.push(update);
+	}
+}
+
+/**
+ * Mark multiple updates as handled.
+ */
+function addStoredUpdates(storedUpdates, updates) {
+	const knownGids = new Set(
+		storedUpdates.map((update) => update.gid),
+	);
+
+	for (const update of updates) {
+		if (!knownGids.has(update.gid)) {
+			storedUpdates.push(update);
+			knownGids.add(update.gid);
+		}
+	}
+}
+
+/**
+ * Check Steam and post Marathon updates.
  *
  * First run:
- * - If updates.json is empty, post all official updates returned by Steam.
+ * - Post every official update returned by Steam.
  *
  * Later runs:
  * - Post only the newest unseen update.
- * - Record every currently unseen update as processed so older announcements
- *   from the same interval are not posted during later hourly checks.
+ * - Mark all unseen updates as handled so older updates from
+ *   that interval are not posted during future checks.
  */
 async function checkAndPostUpdates(client, channelId) {
-	const channel = await getUpdateChannel(client, channelId);
+	const channel = await getUpdateChannel(
+		client,
+		channelId,
+	);
 
 	const storedUpdates = await readStoredUpdates();
 	const fetchedUpdates = await fetchMarathonUpdates();
@@ -174,9 +197,12 @@ async function checkAndPostUpdates(client, channelId) {
 
 	const isFirstRun = storedUpdates.length === 0;
 
+	/*
+	 * First run: send every returned update as its own message.
+	 */
 	if (isFirstRun) {
 		console.log(
-			`First run: posting ${unseenUpdates.length} Marathon update(s).`,
+			`First run: found ${unseenUpdates.length} update(s).`,
 		);
 
 		let postedCount = 0;
@@ -187,7 +213,11 @@ async function checkAndPostUpdates(client, channelId) {
 					content: createUpdateMessage(update),
 				});
 
-				storedUpdates.push(update);
+				/*
+				 * Only save an update after Discord successfully
+				 * accepts the message.
+				 */
+				addStoredUpdate(storedUpdates, update);
 				await writeStoredUpdates(storedUpdates);
 
 				postedCount++;
@@ -203,8 +233,8 @@ async function checkAndPostUpdates(client, channelId) {
 				);
 
 				/*
-				 * Stop so the next run retries this update and everything
-				 * after it.
+				 * Stop processing so the failed update can be
+				 * retried during the next check.
 				 */
 				break;
 			}
@@ -214,8 +244,7 @@ async function checkAndPostUpdates(client, channelId) {
 	}
 
 	/*
-	 * fetchedUpdates and unseenUpdates are oldest-first,
-	 * so the final item is the newest unseen announcement.
+	 * unseenUpdates is oldest-first, so the final item is newest.
 	 */
 	const latestUpdate = unseenUpdates.at(-1);
 
@@ -224,14 +253,15 @@ async function checkAndPostUpdates(client, channelId) {
 	});
 
 	console.log(
-		`Posted latest Marathon update: ${latestUpdate.title} (${latestUpdate.gid})`,
+		`Posted latest update: ${latestUpdate.title} ` +
+		`(${latestUpdate.gid})`,
 	);
 
 	/*
-	 * Record all currently unseen updates. This intentionally prevents older
-	 * announcements from the same hourly interval from being posted later.
+	 * Mark all unseen updates as handled. Only the newest was posted,
+	 * but older updates from the same interval will not be posted later.
 	 */
-	mergeStoredUpdates(storedUpdates, unseenUpdates);
+	addStoredUpdates(storedUpdates, unseenUpdates);
 	await writeStoredUpdates(storedUpdates);
 
 	return 1;

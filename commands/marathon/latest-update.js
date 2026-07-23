@@ -1,10 +1,15 @@
 const { SlashCommandBuilder } = require('discord.js');
-const { getLatestUpdate } = require('../../services/steam.js');
+
+const {
+	getLatestUpdate,
+} = require('../../services/steam');
 
 module.exports = {
 	data: new SlashCommandBuilder()
 		.setName('latest-update')
-		.setDescription('Fetch the latest game update from Steam.'),
+		.setDescription(
+			'Displays the newest official Marathon update.',
+		),
 
 	async execute(interaction) {
 		await interaction.deferReply();
@@ -12,19 +17,21 @@ module.exports = {
 		try {
 			const latestUpdate = await getLatestUpdate();
 
-			if (!latestUpdate) {
-				throw new Error('Steam returned no news items.');
-			}
-
-			await interaction.editReply(
-				`**${latestUpdate.title}**\n${latestUpdate.url}`,
-			);
+			await interaction.editReply({
+				content:
+					`**${latestUpdate.title}**\n` +
+					latestUpdate.url,
+			});
 		}
 		catch (error) {
-			console.error('Failed to fetch latest update:', error);
+			console.error(
+				'Failed to fetch latest update:',
+				error,
+			);
 
 			await interaction.editReply({
-				content: 'Failed to fetch the latest game update.',
+				content:
+					'Unable to fetch the latest Marathon update.',
 			});
 		}
 	},
