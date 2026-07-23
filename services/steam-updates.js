@@ -2,63 +2,89 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 
 const MARATHON_APP_ID = '3065800';
-const MARATHON_NEWS_URL = `https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid=${MARATHON_APP_ID}`;
 
-const updatesFile = path.join(__dirname, '..', 'data', 'updates.json');
+const MARATHON_NEWS_URL =
+	`https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid=${MARATHON_APP_ID}`;
 
-// Read previous steam updates
-async function readUpdates() {
+const updatesFile = path.join(
+	__dirname,
+	'..',
+	'data',
+	'updates.json',
+);
+
+/**
+ * Read previously processed Steam updates.
+ */
+async function readStoredUpdates() {
 	try {
 		const contents = await fs.readFile(updatesFile, 'utf8');
 		const updates = JSON.parse(contents);
 
 		if (!Array.isArray(updates)) {
-			throw new TypeError('data/updates.json must contain a JSON array.');
+			throw new TypeError(
+				'data/updates.json must contain a JSON array.',
+			);
 		}
+
 		return updates;
 	}
-
-	catch (err) {
+	catch (error) {
 		if (error.code === 'ENOENT') {
-			console.log('data/updates.json does not exist. Starting fresh');
+			console.log(
+				'data/updates.json does not exist. Starting fresh.',
+			);
+
 			return [];
 		}
-		throw err;
+
+		throw error;
 	}
 }
 
-// Save updates by newest first
-async function writeUpdate(updates) {
+/**
+ * Save processed updates newest-first.
+ */
+async function writeStoredUpdates(updates) {
 	await fs.mkdir(path.dirname(updatesFile), {
 		recursive: true,
 	});
 
-	const sortUpdates = [...updates].sort(
+	const sortedUpdates = [...updates].sort(
 		(a, b) => b.date - a.date,
 	);
 
 	await fs.writeFile(
 		updatesFile,
-		JSON.stringify(sortUpdates, null, 4),
+		JSON.stringify(sortedUpdates, null, 4),
 		'utf8',
 	);
 }
 
-// Fetch updates and sorted oldest-newest for discord message posting
-async function fetchUpdates() {
-	const res = await fetch(MARATHON_NEWS_URL, {
+/**
+ * Fetch official Marathon announcements from Steam.
+ *
+ * Results are sorted oldest-first so first-run messages appear
+ * chronologically in the Discord channel.
+ */
+async function fetchMarathonUpdates() {
+	const response = await fetch(MARATHON_NEWS_URL, {
 		signal: AbortSignal.timeout(15_000),
 	});
 
-	if (!res.ok) {
-		throw new Error(`Steam API returned ${res.status} ${res.statusText}`);
-	};
+	if (!response.ok) {
+		throw new Error(
+			`Steam API returned ${response.status} ${response.statusText}`,
+		);
+	}
 
-	const data = await res.json();
+	const data = await response.json();
 	const newsItems = data.appnews?.newsitems;
 
-	if (!Array.isArray(newItems)) {
-		throw new Error('Steam API response did not contain a newsitems array');
+	if (!Array.isArray(newsItems)) {
+		throw new Error(
+			'Steam API response did not contain a newsitems array.',
+		);
 	}
 
 	return newsItems
@@ -66,7 +92,9 @@ async function fetchUpdates() {
 		.sort((a, b) => a.date - b.date);
 }
 
-// Create discord message for each update
+/**
+ * Create the Discord message for one Steam update.
+ */
 function createUpdateMessage(update) {
 	return [
 		`## ${update.title}`,
@@ -75,7 +103,9 @@ function createUpdateMessage(update) {
 	].join('\n');
 }
 
-// Add updates that aren't stored
+/**
+ * Add updates that are not already stored.
+ */
 function mergeStoredUpdates(storedUpdates, newUpdates) {
 	const knownGids = new Set(
 		storedUpdates.map((update) => update.gid),
@@ -91,11 +121,42 @@ function mergeStoredUpdates(storedUpdates, newUpdates) {
 	return storedUpdates;
 }
 
-// Find the marathon-updates channel
+/**
+ * Find the configured Discord channel.
+ */
+async function getUpdateChannel(client, channelId) {
+	const channel = await client.channels.fetch(channelId);
+
+	if (!channel) {
+		throw new Error(
+			`Discord channel ${channelId} was not found.`,
+		);
+	}
+
+	if (!channel.isTextBased()) {
+		throw new Error(
+			`Discord channel ${channelId} is not text-based.`,
+		);
+	}
+
+	return channel;
+}
+
+/**
+ * Check Steam and post updates.
+ *
+ * First run:
+ * - If updates.json is empty, post all official updates returned by Steam.
+ *
+ * Later runs:
+ * - Post only the newest unseen update.
+ * - Record every currently unseen update as processed so older announcements
+ *   from the same interval are not posted during later hourly checks.
+ */
 async function checkAndPostUpdates(client, channelId) {
 	const channel = await getUpdateChannel(client, channelId);
 
-	const storedUpdates = await readUpdates();
+	const storedUpdates = await readStoredUpdates();
 	const fetchedUpdates = await fetchMarathonUpdates();
 
 	const storedGids = new Set(
@@ -127,7 +188,7 @@ async function checkAndPostUpdates(client, channelId) {
 				});
 
 				storedUpdates.push(update);
-				await writeUpdate(storedUpdates);
+				await writeStoredUpdates(storedUpdates);
 
 				postedCount++;
 
@@ -171,12 +232,12 @@ async function checkAndPostUpdates(client, channelId) {
 	 * announcements from the same hourly interval from being posted later.
 	 */
 	mergeStoredUpdates(storedUpdates, unseenUpdates);
-	await writeUpdate(storedUpdates);
+	await writeStoredUpdates(storedUpdates);
 
 	return 1;
 }
 
 module.exports = {
-	fetchUpdates,
+	fetchMarathonUpdates,
 	checkAndPostUpdates,
 };
