@@ -109,7 +109,19 @@ async function fetchMarathonUpdates() {
  * the Steam preview card and image.
  */
 function createUpdateMessage(update) {
-	return `**${update.title}**\n${update.url}`;
+	const published = new Date(update.date * 1000).toLocaleString(
+		'en-US',
+		{
+			dateStyle: 'full',
+			timeStyle: 'short',
+		},
+	);
+
+	return [
+		`**${update.title}**`,
+		`Published: ${published}`,
+		update.url,
+	].join('\n');
 }
 
 /**
