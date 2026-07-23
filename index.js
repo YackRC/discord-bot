@@ -1,6 +1,9 @@
 // Require necessary Node.js and discord.js classes
 const fs = require('node:fs');
 const path = require('node:path');
+
+const cron = require('node-cron');
+
 const {
 	Client,
 	Collection,
@@ -9,24 +12,33 @@ const {
 	MessageFlags,
 } = require('discord.js');
 
-const { token } = require('./config');
+const {
+	token,
+	updateChannelId,
+	updateTimezone,
+} = require('./config');
 
-// Create a new Discord client instance
+const {
+	checkAndPostUpdates,
+} = require('./services/steam-updates');
+
+// Create a Discord client
 const client = new Client({
 	intents: [GatewayIntentBits.Guilds],
 });
 
-// Create a collection to store commands
+// Store loaded slash commands
 client.commands = new Collection();
 
-// Load commands from the commands directory
+/**
+ * Load slash commands from commands/<category>/*.js
+ */
 const foldersPath = path.join(__dirname, 'commands');
 const commandFolders = fs.readdirSync(foldersPath);
 
 for (const folder of commandFolders) {
 	const commandsPath = path.join(foldersPath, folder);
 
-	// Ignore files or unexpected entries directly inside commands/
 	if (!fs.statSync(commandsPath).isDirectory()) {
 		continue;
 	}
@@ -44,29 +56,96 @@ for (const folder of commandFolders) {
 		}
 		else {
 			console.warn(
-				`[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`,
+				`[WARNING] The command at ${filePath} is missing ` +
+				'a required "data" or "execute" property.',
 			);
 		}
 	}
 }
 
-// Run once when the client successfully connects
-client.once(Events.ClientReady, (readyClient) => {
-	console.log(`Ready! Logged in as ${readyClient.user.tag}`);
+/**
+ * Run an update check without allowing an error to stop the bot.
+ */
+async function runUpdateCheck() {
+	console.log(
+		`[${new Date().toISOString()}] Checking for Marathon updates...`,
+	);
+
+	try {
+		const postedCount = await checkAndPostUpdates(
+			client,
+			updateChannelId,
+		);
+
+		console.log(
+			`Marathon update check complete. Posted ${postedCount} message(s).`,
+		);
+	}
+	catch (error) {
+		console.error(
+			'Marathon update check failed:',
+			error,
+		);
+	}
+}
+
+/**
+ * Run once when Discord is ready.
+ */
+client.once(Events.ClientReady, async (readyClient) => {
+	console.log(
+		`Ready! Logged in as ${readyClient.user.tag}`,
+	);
+
+	/*
+	 * Run once immediately after startup.
+	 *
+	 * On the first deployment, this posts every update returned by Steam.
+	 * Later restarts will not repost stored GIDs.
+	 */
+	await runUpdateCheck();
+
+	/*
+	 * Cron format:
+	 *
+	 * second minute hour day-of-month month day-of-week
+	 *
+	 * Run at minute 0 during hours 12 through 20:
+	 * 12 PM, 1 PM, 2 PM, ... 8 PM.
+	 */
+	cron.schedule(
+		'0 0 12-20 * * *',
+		runUpdateCheck,
+		{
+			timezone: updateTimezone,
+			noOverlap: true,
+			name: 'marathon-update-check',
+		},
+	);
+
+	console.log(
+		'Marathon update checker scheduled hourly from ' +
+		`12 PM through 8 PM in ${updateTimezone}.`,
+	);
 });
 
-// Handle incoming slash commands
+/**
+ * Handle slash commands.
+ */
 client.on(Events.InteractionCreate, async (interaction) => {
 	if (!interaction.isChatInputCommand()) {
 		return;
 	}
 
-	const command = interaction.client.commands.get(interaction.commandName);
+	const command = interaction.client.commands.get(
+		interaction.commandName,
+	);
 
 	if (!command) {
 		console.error(
 			`No command matching /${interaction.commandName} was found.`,
 		);
+
 		return;
 	}
 
@@ -80,28 +159,23 @@ client.on(Events.InteractionCreate, async (interaction) => {
 		);
 
 		/*
-		 * Discord error 10062 means the interaction is no longer valid.
-		 *
-		 * This usually happens when the interaction was not acknowledged
-		 * quickly enough. Attempting to reply again would produce another
-		 * Unknown Interaction error.
+		 * Discord error 10062 means the interaction has expired.
+		 * Replying again would only create another error.
 		 */
 		if (error.code === 10062) {
 			console.error(
-				`Interaction for /${interaction.commandName} expired before it could be acknowledged.`,
+				`Interaction for /${interaction.commandName} expired.`,
 			);
+
 			return;
 		}
 
 		const errorMessage = {
-			content: 'There was an error while executing this command!',
+			content:
+				'There was an error while executing this command!',
 			flags: MessageFlags.Ephemeral,
 		};
 
-		/*
-		 * Sending an error response can also fail. Keep it inside its own
-		 * try/catch so that a failed reply does not crash the Node process.
-		 */
 		try {
 			if (interaction.replied || interaction.deferred) {
 				await interaction.followUp(errorMessage);
@@ -112,22 +186,26 @@ client.on(Events.InteractionCreate, async (interaction) => {
 		}
 		catch (replyError) {
 			console.error(
-				`Unable to send an error response for /${interaction.commandName}:`,
+				'Unable to send an error response for ' +
+				`/${interaction.commandName}:`,
 				replyError,
 			);
 		}
 	}
 });
 
-// Log unexpected Promise failures
 process.on('unhandledRejection', (reason) => {
-	console.error('Unhandled Promise rejection:', reason);
+	console.error(
+		'Unhandled Promise rejection:',
+		reason,
+	);
 });
 
-// Log unexpected synchronous exceptions
 process.on('uncaughtException', (error) => {
-	console.error('Uncaught exception:', error);
+	console.error(
+		'Uncaught exception:',
+		error,
+	);
 });
 
-// Log in to Discord with the bot token
 client.login(token);
