@@ -2,7 +2,7 @@
 node_modules/
 jspm_packages/
 web_modules/
-data/updates.json
+data/*.json
 
 # Debugging and logs
 logs
