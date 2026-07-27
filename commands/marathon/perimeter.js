@@ -4,9 +4,11 @@ const { perimeter } = require('../../data/maps');
 module.exports = {
 	data: new SlashCommandBuilder()
 		.setName('perimeter')
-		.addSubcommand('info')
-		.setDescription('Basic info about Perimeter.'),
-
+		.addSubcommand(subcommand =>
+			subcommand
+				.setName('info')
+		        .setDescription('Basic info about Perimeter.'),
+		),
 	async execute(interaction) {
 		const subcommand = interaction.options.getSubcommand();
 
