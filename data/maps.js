@@ -1,5 +1,42 @@
 module.exports = {
-    outpost: {
-        name: 'Outpost',
-    }
-}
+	perimeter: {
+		name: 'Perimeter',
+		threat: 'Low',
+		squadSpawns: '5 teams (15 runners)',
+		soloSpawns: '7 to 10 runners',
+		POIs: ['Hauler', 'North Relay', 'Station', 'South Relay', 'Overflow'],
+		prioHostileLocation: 'Overflow',
+	},
+	dayMarsh: {
+		name: 'Dire Marsh (Day)',
+		threat: 'Medium',
+		squadSpawns: '6 teams (18 runners)',
+		soloSpawns: '8 to 12 runners',
+		POIs: ['Quarantine', 'Algae Ponds', 'Greenhouse', 'Bio-Research', 'Complex', 'AI Uplink', 'Maintenance'],
+		prioHostileLocation: 'Algae Ponds',
+	},
+	nightMarsh: {
+		name: 'Dire Marsh (Night)',
+		threat: 'Medium',
+		squadSpawns: '6 teams (18 runners)',
+		soloSpawns: '8 to 12 runners',
+		POIs: ['Quarantine', 'Algae Ponds', 'Greenhouse', 'Bio-Research', 'Complex', 'AI Uplink', 'Maintenance'],
+		prioHostileLocation: 'Between Bio-Research and Greenhouse',
+	},
+	outpost: {
+		name: 'Outpost',
+		threat: 'High',
+		squadSpawns: '4 teams (9 to 12 runners)',
+		soloSpawns: '6 to 8 runners',
+		POIs: ['Flight Control', 'Airfield', 'Orientation', 'Dormitories', 'Pinwheel Base', 'Processing'],
+		prioHostileLocation: 'Dormitories',
+	},
+	cryoArchive: {
+		name: 'Cryo Archive',
+		threat: 'Very High',
+		squadSpawns: '5 teams (15 runners)',
+		soloSpawns: 'N/A',
+		POIs: ['Cargo', 'Steerage', 'Biostock', 'Preservation', 'Revival', 'Index', 'Control'],
+		prioHostileLocation: 'N/A',
+	},
+};
