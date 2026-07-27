@@ -13,14 +13,14 @@ module.exports = {
 		const subcommand = interaction.options.getSubcommand();
 
 		if (subcommand === 'info') {
-			await interaction.reply(
-				`**${perimeter.name}**\n
-                Threat Level: ${perimeter.threat}\n
-                Squad Spawns: ${perimeter.squadSpawns}\n
-                Solo Spawns: ${perimeter.soloSpawns}\n
-                Points of Interest: ${perimeter.POIs.join(', ')}\n
-                Priority Hostile: ${perimeter.prioHostileLocation}`,
-			);
+			await interaction.reply([
+				`**${perimeter.name}**`,
+				`Threat Level: ${perimeter.threat}`,
+				`Squad Spawns: ${perimeter.squadSpawns}`,
+				`Solo Spawns: ${perimeter.soloSpawns}`,
+				`Points of Interest: ${perimeter.POIs.join(', ')}`,
+				`Priority Hostile: ${perimeter.prioHostileLocation}`,
+			].join('\n'));
 		}
 	},
 };
