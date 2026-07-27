@@ -3,7 +3,6 @@ const { SlashCommandBuilder } = require('discord.js');
 module.exports = {
 	data: new SlashCommandBuilder()
 		.setName('fma-school')
-		.setDescription('Must need clips from the martial arts legend.')
 	// Create subcommand
 		.addSubcommand(subcommand =>
 			subcommand
