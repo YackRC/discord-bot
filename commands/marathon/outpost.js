@@ -36,6 +36,8 @@ module.exports = {
 		}
 
 		if (subcommand === 'pinwheel-base-entry') {
+			await interaction.deferReply();
+
 			const entries = [pinwheel.entry1, pinwheel.entry2, pinwheel.entry3];
 			const files = entries.map((entry, index) =>
 				new AttachmentBuilder(entry.entryLocation, {
@@ -49,7 +51,7 @@ module.exports = {
 					.setImage(`attachment://pinwheel-entry-${index + 1}.png`),
 			);
 
-			await interaction.reply({
+			await interaction.editReply({
 				content: `**${pinwheel.name} Entries**`,
 				embeds,
 				files,
